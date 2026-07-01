@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ledger — Study Planner &amp; Notes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;1,9..144,500&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+:root{
+  --paper:#FBF8F1;
+  --paper-dim:#F2EDE1;
+  --ink:#1C2E3D;
+  --indigo:#3A5A9C;
+  --coral:#E1653D;
+  --sage:#6F8F6A;
+  --muted:#948C7C;
+  --line:#DDD5C4;
+  --white:#fff;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  background:var(--paper);
+  color:var(--ink);
+  font-family:'Inter',sans-serif;
+  min-height:100vh;
+}
+::selection{background:var(--coral);color:#fff;}
+.app{display:flex;min-height:100vh;}
+
+/* Sidebar — binder motif */
+.sidebar{
+  width:220px;flex-shrink:0;background:var(--ink);color:var(--paper);
+  display:flex;flex-direction:column;padding:28px 0 20px;position:relative;
+}
+.brand{
+  font-family:'Fraunces',serif;font-weight:600;font-size:22px;
+  padding:0 24px 24px;letter-spacing:.2px;
+}
+.brand span{color:var(--coral);font-style:italic;font-weight:500;}
+.navtabs{display:flex;flex-direction:column;gap:2px;}
+.navtab{
+  position:relative;text-align:left;background:transparent;border:none;color:var(--paper);
+  font-family:'Inter',sans-serif;font-size:14px;font-weight:500;padding:13px 24px;
+  cursor:pointer;opacity:.65;transition:opacity .15s,background .15s;
+}
+.navtab:hover{opacity:1;}
+.navtab.active{opacity:1;background:rgba(251,248,241,.08);}
+.navtab.active::before{
+  content:'';position:absolute;right:0;top:0;bottom:0;width:4px;background:var(--coral);
+}
+.tab-label{margin-left:2px;}
+.sidebar-foot{margin-top:auto;padding:16px 24px 0;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);border-top:1px solid rgba(251,248,241,.12);}
+
+/* Main */
+.main{flex:1;padding:36px 44px;max-width:980px;}
+.view{display:none;}
+.view.active{display:block;}
+.view-head{margin-bottom:26px;}
+.view-title{font-family:'Fraunces',serif;font-size:28px;font-weight:600;margin:0 0 4px;}
+.view-sub{color:var(--muted);font-size:14px;margin:0;}
+
+/* Cards */
+.card{background:var(--white);border:1px solid var(--line);border-radius:3px;padding:22px;margin-bottom:18px;}
+.card h3{font-family:'Fraunces',serif;font-size:16px;font-weight:600;margin:0 0 14px;}
+
+/* Stats row */
+.stats{display:flex;gap:14px;margin-bottom:22px;}
+.stat{flex:1;background:var(--white);border:1px solid var(--line);border-radius:3px;padding:16px 18px;}
+.stat .num{font-family:'Fraunces',serif;font-size:26px;font-weight:600;}
+.stat .lbl{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-top:2px;}
+.stat.overdue .num{color:var(--coral);}
+
+/* Forms */
+label{display:block;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:5px;}
+input[type=text],input[type=date],input[type=number],input[type=password],input[type=url],select,textarea{
+  width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:2px;font-family:'Inter',sans-serif;
+  font-size:14px;background:var(--paper-dim);color:var(--ink);
+}
+textarea{resize:vertical;min-height:120px;font-family:'IBM Plex Mono',monospace;font-size:13px;}
+.form-row{display:flex;gap:12px;margin-bottom:12px;}
+.form-row > div{flex:1;}
+.field{margin-bottom:12px;}
+button{
+  font-family:'Inter',sans-serif;font-weight:600;font-size:13px;cursor:pointer;
+  border:none;border-radius:2px;padding:10px 18px;transition:opacity .15s,transform .1s;
+}
+button:active{transform:scale(.98);}
+.btn-primary{background:var(--ink);color:var(--paper);}
+.btn-primary:hover{opacity:.88;}
+.btn-accent{background:var(--coral);color:#fff;}
+.btn-accent:hover{opacity:.88;}
+.btn-ghost{background:transparent;color:var(--ink);border:1px solid var(--line);}
+.btn-ghost:hover{background:var(--paper-dim);}
+.btn-sm{padding:6px 12px;font-size:12px;}
+button:disabled{opacity:.5;cursor:not-allowed;}
+
+/* Task list */
+.subject-pill{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:20px;}
+.task-group-label{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin:20px 0 8px;}
+.task{display:flex;align-items:center;gap:12px;padding:11px 4px;border-bottom:1px solid var(--line);}
+.task:last-child{border-bottom:none;}
+.task input[type=checkbox]{width:17px;height:17px;accent-color:var(--sage);flex-shrink:0;cursor:pointer;}
+.task.done .t-title{text-decoration:line-through;color:var(--muted);}
+.t-title{font-weight:500;font-size:14.5px;flex:1;}
+.t-meta{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);white-space:nowrap;}
+.priority-high{color:var(--coral);}
+.task .del{background:none;border:none;color:var(--muted);cursor:pointer;font-size:15px;padding:2px 6px;}
+.task .del:hover{color:var(--coral);}
+.empty{color:var(--muted);font-size:13.5px;padding:14px 0;}
+
+/* Pomodoro */
+.timer-box{display:flex;align-items:center;gap:18px;}
+.timer-display{font-family:'Fraunces',serif;font-size:38px;font-weight:600;min-width:110px;}
+.timer-controls{display:flex;gap:8px;}
+
+/* Summarizer */
+.src-toggle{display:flex;gap:8px;margin-bottom:14px;}
+.src-toggle button{flex:1;}
+.src-toggle button.active{background:var(--indigo);color:#fff;}
+.src-toggle button:not(.active){background:var(--paper-dim);color:var(--muted);}
+.drop{border:1.5px dashed var(--line);border-radius:3px;padding:26px;text-align:center;color:var(--muted);font-size:13.5px;cursor:pointer;}
+.drop:hover{border-color:var(--indigo);}
+.result-block{margin-top:6px;}
+.result-block h4{font-family:'Fraunces',serif;font-size:14px;margin:16px 0 8px;color:var(--indigo);}
+.kp-list{margin:0;padding-left:18px;}
+.kp-list li{margin-bottom:6px;font-size:14px;line-height:1.5;}
+.quiz-item{border:1px solid var(--line);border-radius:2px;padding:10px 13px;margin-bottom:8px;cursor:pointer;background:var(--paper-dim);}
+.quiz-q{font-weight:600;font-size:13.5px;}
+.quiz-a{font-size:13px;color:var(--muted);margin-top:6px;display:none;}
+.quiz-item.open .quiz-a{display:block;}
+.note-item{padding:13px 4px;border-bottom:1px solid var(--line);cursor:pointer;}
+.note-item:hover{background:var(--paper-dim);}
+.note-item .n-title{font-weight:600;font-size:14px;}
+.note-item .n-meta{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);margin-top:2px;}
+.loading{display:flex;align-items:center;gap:9px;color:var(--muted);font-size:13.5px;}
+.spinner{width:14px;height:14px;border:2px solid var(--line);border-top-color:var(--coral);border-radius:50%;animation:spin .7s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+/* Settings */
+.setting-note{font-size:12.5px;color:var(--muted);margin-top:-6px;margin-bottom:14px;line-height:1.5;}
+.status-dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:6px;background:var(--line);}
+.status-dot.ok{background:var(--sage);}
+.toast{position:fixed;bottom:24px;right:24px;background:var(--ink);color:var(--paper);padding:12px 18px;border-radius:3px;font-size:13.5px;opacity:0;transform:translateY(8px);transition:.2s;pointer-events:none;z-index:99;}
+.toast.show{opacity:1;transform:translateY(0);}
+.search-result{padding:10px 0;border-bottom:1px solid var(--line);}
+.search-result a{color:var(--indigo);font-weight:600;font-size:13.5px;text-decoration:none;}
+.search-result a:hover{text-decoration:underline;}
+.search-result p{margin:4px 0 0;font-size:13px;color:var(--muted);}
+@media(max-width:760px){
+  .app{flex-direction:column;}
+  .sidebar{width:100%;flex-direction:row;overflow-x:auto;padding:14px 0;}
+  .brand{display:none;}
+  .navtab.active::before{display:none;}
+  .main{padding:24px 18px;}
+  .form-row{flex-direction:column;}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="sidebar">
+    <div class="brand">Ledger<span>.</span></div>
+    <div class="navtabs">
+      <button class="navtab active" data-view="planner"><span class="tab-label">📋 Planner</span></button>
+      <button class="navtab" data-view="summarizer"><span class="tab-label">📝 Notes Summarizer</span></button>
+      <button class="navtab" data-view="settings"><span class="tab-label">⚙ Settings</span></button>
+    </div>
+    <div class="sidebar-foot" id="storageNote">Saved locally to this app</div>
+  </div>
+
+  <div class="main">
+
+    <!-- PLANNER -->
+    <div class="view active" id="view-planner">
+      <div class="view-head">
+        <h1 class="view-title">Study Planner</h1>
+        <p class="view-sub">Everything due, grouped and color-coded by subject.</p>
+      </div>
+
+      <div class="stats">
+        <div class="stat"><div class="num" id="statToday">0</div><div class="lbl">Due today</div></div>
+        <div class="stat overdue"><div class="num" id="statOverdue">0</div><div class="lbl">Overdue</div></div>
+        <div class="stat"><div class="num" id="statWeek">0</div><div class="lbl">This week</div></div>
+        <div class="stat"><div class="num" id="statDone">0</div><div class="lbl">Completed</div></div>
+      </div>
+
+      <div class="card">
+        <h3>Add a task</h3>
+        <div class="form-row">
+          <div class="field"><label>Task</label><input type="text" id="taskTitle" placeholder="e.g. Read chapter 4"></div>
+        </div>
+        <div class="form-row">
+          <div class="field">
+            <label>Subject</label>
+            <select id="taskSubject"></select>
+          </div>
+          <div class="field"><label>New subject (optional)</label><input type="text" id="newSubject" placeholder="e.g. Chemistry"></div>
+        </div>
+        <div class="form-row">
+          <div class="field"><label>Due date</label><input type="date" id="taskDue"></div>
+          <div class="field">
+            <label>Priority</label>
+            <select id="taskPriority"><option value="low">Low</option><option value="medium" selected>Medium</option><option value="high">High</option></select>
+          </div>
+          <div class="field"><label>Est. minutes</label><input type="number" id="taskMinutes" placeholder="30" min="5"></div>
+        </div>
+        <button class="btn-primary" id="addTaskBtn">Add task</button>
+      </div>
+
+      <div class="card">
+        <h3>Focus timer</h3>
+        <div class="timer-box">
+          <div class="timer-display" id="timerDisplay">25:00</div>
+          <div class="timer-controls">
+            <button class="btn-accent btn-sm" id="timerStart">Start</button>
+            <button class="btn-ghost btn-sm" id="timerReset">Reset</button>
+            <button class="btn-ghost btn-sm" id="timerMode">25 / 5</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" id="taskListCard">
+        <h3>Tasks</h3>
+        <div id="taskList"></div>
+      </div>
+    </div>
+
+    <!-- SUMMARIZER -->
+    <div class="view" id="view-summarizer">
+      <div class="view-head">
+        <h1 class="view-title">Notes Summarizer</h1>
+        <p class="view-sub">Paste text, upload a file, or pull one from Drive — get a summary, key points, and a quiz.</p>
+      </div>
+
+      <div class="card">
+        <div class="src-toggle">
+          <button class="active" id="srcPaste">Paste text</button>
+          <button id="srcFile">Upload file</button>
+          <button id="srcDrive">From Google Drive</button>
+        </div>
+
+        <div id="pasteBox">
+          <textarea id="pasteText" placeholder="Paste your notes, an article, or a lecture transcript here..."></textarea>
+        </div>
+        <div id="fileBox" style="display:none;">
+          <div class="drop" id="dropZone">Click to choose a .txt, .md, or .pdf file</div>
+          <input type="file" id="fileInput" accept=".txt,.md,.pdf" style="display:none;">
+          <div id="fileStatus" class="setting-note"></div>
+        </div>
+        <div id="driveBox" style="display:none;">
+          <div class="field"><label>Google Drive shareable link or file ID</label><input type="text" id="driveFileId" placeholder="https://drive.google.com/file/d/FILE_ID/view"></div>
+          <div class="setting-note">Works for files shared as "Anyone with the link can view", and requires a Google API key set in Settings.</div>
+          <button class="btn-ghost btn-sm" id="driveFetchBtn">Fetch file</button>
+          <div id="driveStatus" class="setting-note"></div>
+        </div>
+
+        <div class="field" style="margin-top:14px;"><label>Title (optional)</label><input type="text" id="noteTitleInput" placeholder="e.g. Photosynthesis — Ch. 7"></div>
+        <button class="btn-primary" id="summarizeBtn">Summarize</button>
+        <div id="summarizeLoading" class="loading" style="display:none;margin-top:12px;"><div class="spinner"></div>Reading and summarizing...</div>
+
+        <div class="result-block" id="resultBlock" style="display:none;">
+          <h4>Summary</h4>
+          <div id="resSummary" style="font-size:14px;line-height:1.6;"></div>
+          <h4>Key points</h4>
+          <ul class="kp-list" id="resKeyPoints"></ul>
+          <h4>Quick quiz</h4>
+          <div id="resQuiz"></div>
+          <button class="btn-ghost btn-sm" id="saveNoteBtn" style="margin-top:10px;">Save to notes</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Quick research lookup</h3>
+        <div class="form-row">
+          <div class="field"><input type="text" id="lookupQuery" placeholder="Search a topic for reference info..."></div>
+          <button class="btn-ghost" id="lookupBtn" style="height:40px;">Search</button>
+        </div>
+        <div id="lookupResults"></div>
+        <div class="setting-note">Uses Google Programmable Search — add an API key and Search Engine ID in Settings to enable.</div>
+      </div>
+
+      <div class="card">
+        <h3>Saved notes</h3>
+        <div id="notesList"></div>
+      </div>
+    </div>
+
+    <!-- SETTINGS -->
+    <div class="view" id="view-settings">
+      <div class="view-head">
+        <h1 class="view-title">Settings</h1>
+        <p class="view-sub">Bring your own keys for Google Drive, Google Search, and optional cloud sync. Everything works locally without these.</p>
+      </div>
+
+      <div class="card">
+        <h3>Google (Drive &amp; Search)</h3>
+        <div class="field"><label>Google API key</label><input type="password" id="cfgGoogleKey" placeholder="AIza..."></div>
+        <div class="setting-note">Create one at console.cloud.google.com → APIs &amp; Services → Credentials. Enable the "Google Drive API" and "Custom Search API" for it.</div>
+        <div class="field"><label>Custom Search Engine ID (cx)</label><input type="text" id="cfgGoogleCx" placeholder="a1b2c3d4e5..."></div>
+        <div class="setting-note">Create a search engine at programmablesearchengine.google.com set to search the entire web, then copy its Search Engine ID.</div>
+      </div>
+
+      <div class="card">
+        <h3>Supabase sync (optional)</h3>
+        <div class="field"><label>Project URL</label><input type="text" id="cfgSbUrl" placeholder="https://xxxx.supabase.co"></div>
+        <div class="field"><label>Anon public key</label><input type="password" id="cfgSbKey" placeholder="eyJhbGciOi..."></div>
+        <div class="setting-note">
+          Optional — this app already saves everything locally to your account automatically. Only fill this in if you want a second copy in your own Supabase project (e.g. to access it from another tool). Create a table first:<br>
+          <code>create table study_data (id text primary key, payload jsonb, updated_at timestamptz default now());</code>
+        </div>
+        <button class="btn-ghost btn-sm" id="sbTestBtn">Test connection</button>
+        <span id="sbStatus" style="margin-left:10px;font-size:12.5px;color:var(--muted);"><span class="status-dot" id="sbDot"></span>not connected</span>
+      </div>
+
+      <div class="card">
+        <button class="btn-primary" id="saveSettingsBtn">Save settings</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/supabase/2.39.0/supabase.min.js"></script>
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+
+/* ---------- state ---------- */
+let subjects = [];   // {id,name,color}
+let tasks = [];       // {id,title,subjectId,due,priority,minutes,done}
+let notes = [];        // {id,title,summary,keyPoints,quiz,createdAt,sourceType}
+let settings = {googleKey:"",googleCx:"",sbUrl:"",sbKey:""};
+const PALETTE = ["#3A5A9C","#E1653D","#6F8F6A","#9C6B3A","#7A5A9C","#3A8C9C"];
+
+/* ---------- storage helpers ---------- */
+async function loadAll(){
+  try{ const r = await window.storage.get('planner:data'); if(r) { const d=JSON.parse(r.value); subjects=d.subjects||[]; tasks=d.tasks||[]; } }catch(e){}
+  try{ const r = await window.storage.get('notes:data'); if(r) notes = JSON.parse(r.value).items||[]; }catch(e){}
+  try{ const r = await window.storage.get('settings:data'); if(r) settings = JSON.parse(r.value); }catch(e){}
+  if(subjects.length===0){ subjects=[{id:'general',name:'General',color:PALETTE[0]}]; }
+}
+async function savePlanner(){ try{ await window.storage.set('planner:data', JSON.stringify({subjects,tasks})); }catch(e){ toast('Save failed'); } }
+async function saveNotes(){ try{ await window.storage.set('notes:data', JSON.stringify({items:notes})); }catch(e){ toast('Save failed'); } }
+async function saveSettingsToStorage(){ try{ await window.storage.set('settings:data', JSON.stringify(settings)); }catch(e){ toast('Save failed'); } }
+
+function toast(msg){
+  const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2200);
+}
+function uid(){ return Math.random().toString(36).slice(2,10); }
+
+/* ---------- nav ---------- */
+document.querySelectorAll('.navtab').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.navtab').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('view-'+btn.dataset.view).classList.add('active');
+  });
+});
+
+/* ---------- planner render ---------- */
+function subjectById(id){ return subjects.find(s=>s.id===id) || subjects[0]; }
+function renderSubjectSelect(){
+  const sel = document.getElementById('taskSubject');
+  sel.innerHTML = subjects.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
+}
+function todayStr(){ return new Date().toISOString().slice(0,10); }
+
+function renderTasks(){
+  const list = document.getElementById('taskList');
+  if(tasks.length===0){ list.innerHTML = '<div class="empty">No tasks yet — add one above.</div>'; }
+  else{
+    const sorted = [...tasks].sort((a,b)=> (a.due||'9999').localeCompare(b.due||'9999'));
+    const groups = {};
+    sorted.forEach(t=>{
+      const key = t.due || 'No date';
+      groups[key] = groups[key]||[];
+      groups[key].push(t);
+    });
+    let html='';
+    Object.keys(groups).sort().forEach(date=>{
+      const label = date==='No date' ? 'No date' : new Date(date+'T00:00').toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'});
+      html += `<div class="task-group-label">${label}${date===todayStr()?' · today':''}</div>`;
+      groups[date].forEach(t=>{
+        const subj = subjectById(t.subjectId);
+        html += `<div class="task ${t.done?'done':''}" data-id="${t.id}">
+          <input type="checkbox" ${t.done?'checked':''} onchange="toggleTask('${t.id}')">
+          <span class="subject-pill" style="background:${subj.color}22;color:${subj.color};">${subj.name}</span>
+          <span class="t-title">${escapeHtml(t.title)}</span>
+          <span class="t-meta ${t.priority==='high'?'priority-high':''}">${t.priority}${t.minutes?' · '+t.minutes+'m':''}</span>
+          <button class="del" onclick="deleteTask('${t.id}')">✕</button>
+        </div>`;
+      });
+    });
+    list.innerHTML = html;
+  }
+  renderStats();
+}
+function renderStats(){
+  const today = todayStr();
+  const weekAhead = new Date(); weekAhead.setDate(weekAhead.getDate()+7);
+  const weekStr = weekAhead.toISOString().slice(0,10);
+  document.getElementById('statToday').textContent = tasks.filter(t=>!t.done && t.due===today).length;
+  document.getElementById('statOverdue').textContent = tasks.filter(t=>!t.done && t.due && t.due<today).length;
+  document.getElementById('statWeek').textContent = tasks.filter(t=>!t.done && t.due && t.due>=today && t.due<=weekStr).length;
+  document.getElementById('statDone').textContent = tasks.filter(t=>t.done).length;
+}
+function escapeHtml(s){ const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+
+window.toggleTask = async function(id){
+  const t = tasks.find(t=>t.id===id); if(!t) return;
+  t.done = !t.done; await savePlanner(); renderTasks();
+};
+window.deleteTask = async function(id){
+  tasks = tasks.filter(t=>t.id!==id); await savePlanner(); renderTasks();
+};
+
+document.getElementById('addTaskBtn').addEventListener('click', async ()=>{
+  const title = document.getElementById('taskTitle').value.trim();
+  if(!title){ toast('Enter a task title'); return; }
+  const newSub = document.getElementById('newSubject').value.trim();
+  let subjectId = document.getElementById('taskSubject').value;
+  if(newSub){
+    const existing = subjects.find(s=>s.name.toLowerCase()===newSub.toLowerCase());
+    if(existing){ subjectId = existing.id; }
+    else{
+      const s = {id:uid(), name:newSub, color:PALETTE[subjects.length % PALETTE.length]};
+      subjects.push(s); subjectId = s.id;
+    }
+  }
+  tasks.push({
+    id:uid(), title, subjectId,
+    due: document.getElementById('taskDue').value || null,
+    priority: document.getElementById('taskPriority').value,
+    minutes: parseInt(document.getElementById('taskMinutes').value)||null,
+    done:false
+  });
+  document.getElementById('taskTitle').value='';
+  document.getElementById('newSubject').value='';
+  document.getElementById('taskMinutes').value='';
+  renderSubjectSelect();
+  await savePlanner();
+  renderTasks();
+  toast('Task added');
+});
+
+/* ---------- pomodoro ---------- */
+let timerSeconds = 25*60, timerRunning=false, timerInterval=null, isWork=true;
+function formatTime(s){ const m=Math.floor(s/60); const ss=s%60; return String(m).padStart(2,'0')+':'+String(ss).padStart(2,'0'); }
+function renderTimer(){ document.getElementById('timerDisplay').textContent = formatTime(timerSeconds); }
+document.getElementById('timerStart').addEventListener('click',()=>{
+  if(timerRunning){ clearInterval(timerInterval); timerRunning=false; document.getElementById('timerStart').textContent='Start'; return; }
+  timerRunning=true; document.getElementById('timerStart').textContent='Pause';
+  timerInterval = setInterval(()=>{
+    timerSeconds--;
+    if(timerSeconds<=0){
+      clearInterval(timerInterval); timerRunning=false;
+      isWork = !isWork; timerSeconds = isWork ? 25*60 : 5*60;
+      document.getElementById('timerStart').textContent='Start';
+      toast(isWork ? 'Break over — back to it' : 'Nice work — take a break');
+    }
+    renderTimer();
+  },1000);
+});
+document.getElementById('timerReset').addEventListener('click',()=>{
+  clearInterval(timerInterval); timerRunning=false; isWork=true; timerSeconds=25*60;
+  document.getElementById('timerStart').textContent='Start'; renderTimer();
+});
+document.getElementById('timerMode').addEventListener('click',()=>{
+  toast('Fixed at 25 / 5 for now');
+});
+
+/* ---------- summarizer: source toggle ---------- */
+let activeSource = 'paste';
+function setSource(s){
+  activeSource = s;
+  document.getElementById('srcPaste').classList.toggle('active', s==='paste');
+  document.getElementById('srcFile').classList.toggle('active', s==='file');
+  document.getElementById('srcDrive').classList.toggle('active', s==='drive');
+  document.getElementById('pasteBox').style.display = s==='paste' ? 'block':'none';
+  document.getElementById('fileBox').style.display = s==='file' ? 'block':'none';
+  document.getElementById('driveBox').style.display = s==='drive' ? 'block':'none';
+}
+document.getElementById('srcPaste').addEventListener('click',()=>setSource('paste'));
+document.getElementById('srcFile').addEventListener('click',()=>setSource('file'));
+document.getElementById('srcDrive').addEventListener('click',()=>setSource('drive'));
+
+let fileText = '';
+document.getElementById('dropZone').addEventListener('click',()=>document.getElementById('fileInput').click());
+document.getElementById('fileInput').addEventListener('change', async (e)=>{
+  const file = e.target.files[0]; if(!file) return;
+  document.getElementById('fileStatus').textContent = 'Reading '+file.name+'...';
+  try{
+    if(file.name.toLowerCase().endsWith('.pdf')){
+      const buf = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({data:buf}).promise;
+      let text='';
+      for(let i=1;i<=pdf.numPages;i++){
+        const page = await pdf.getPage(i);
+        const content = await page.getTextContent();
+        text += content.items.map(it=>it.str).join(' ') + '\n';
+      }
+      fileText = text;
+    } else {
+      fileText = await file.text();
+    }
+    document.getElementById('fileStatus').textContent = `Loaded ${file.name} (${fileText.length.toLocaleString()} characters)`;
+  }catch(err){
+    document.getElementById('fileStatus').textContent = 'Could not read file: '+err.message;
+  }
+});
+
+document.getElementById('driveFetchBtn').addEventListener('click', async ()=>{
+  const raw = document.getElementById('driveFileId').value.trim();
+  if(!raw){ toast('Paste a Drive link or file ID'); return; }
+  if(!settings.googleKey){ toast('Add a Google API key in Settings first'); return; }
+  let fileId = raw;
+  const m = raw.match(/\/d\/([a-zA-Z0-9_-]+)/) || raw.match(/id=([a-zA-Z0-9_-]+)/);
+  if(m) fileId = m[1];
+  const statusEl = document.getElementById('driveStatus');
+  statusEl.textContent = 'Fetching...';
+  try{
+    const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&key=${settings.googleKey}`);
+    if(!res.ok) throw new Error('File not accessible (must be shared as "Anyone with the link")');
+    const text = await res.text();
+    fileText = text;
+    activeSource = 'drive';
+    statusEl.textContent = `Fetched ${text.length.toLocaleString()} characters`;
+  }catch(err){
+    statusEl.textContent = 'Error: '+err.message;
+  }
+});
+
+/* ---------- summarize via Claude ---------- */
+document.getElementById('summarizeBtn').addEventListener('click', async ()=>{
+  let sourceText = '';
+  if(activeSource==='paste') sourceText = document.getElementById('pasteText').value.trim();
+  else sourceText = fileText.trim();
+
+  if(!sourceText){ toast('Add some text first'); return; }
+  if(sourceText.length > 60000) sourceText = sourceText.slice(0,60000);
+
+  document.getElementById('summarizeLoading').style.display='flex';
+  document.getElementById('resultBlock').style.display='none';
+  document.getElementById('summarizeBtn').disabled = true;
+
+  try{
+    const prompt = `You are a study assistant helping a student understand their notes. Read the notes below and respond with ONLY valid JSON (no markdown fences, no commentary) in exactly this shape:
+{"summary": "a clear 3-5 sentence summary", "keyPoints": ["point 1", "point 2", "..."], "quiz": [{"q":"question","a":"answer"}]}
+Include 5-8 key points and 4-6 quiz questions that test understanding of the material.
+
+NOTES:
+"""${sourceText}"""`;
+
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({
+        model:"claude-sonnet-4-6",
+        max_tokens:1500,
+        messages:[{role:"user", content: prompt}]
+      })
+    });
+    const data = await response.json();
+    let text = (data.content||[]).map(b=>b.text||"").join("\n").trim();
+    text = text.replace(/^```json/i,'').replace(/^```/,'').replace(/```$/,'').trim();
+    const parsed = JSON.parse(text);
+
+    window._lastResult = parsed;
+    document.getElementById('resSummary').textContent = parsed.summary || '';
+    document.getElementById('resKeyPoints').innerHTML = (parsed.keyPoints||[]).map(p=>`<li>${escapeHtml(p)}</li>`).join('');
+    document.getElementById('resQuiz').innerHTML = (parsed.quiz||[]).map((q,i)=>`
+      <div class="quiz-item" onclick="this.classList.toggle('open')">
+        <div class="quiz-q">${i+1}. ${escapeHtml(q.q)}</div>
+        <div class="quiz-a">${escapeHtml(q.a)}</div>
+      </div>`).join('');
+    document.getElementById('resultBlock').style.display='block';
+  }catch(err){
+    toast('Summarize failed — try again');
+    console.error(err);
+  }finally{
+    document.getElementById('summarizeLoading').style.display='none';
+    document.getElementById('summarizeBtn').disabled = false;
+  }
+});
+
+document.getElementById('saveNoteBtn').addEventListener('click', async ()=>{
+  if(!window._lastResult) return;
+  const title = document.getElementById('noteTitleInput').value.trim() || 'Untitled note';
+  notes.unshift({
+    id:uid(), title,
+    summary: window._lastResult.summary,
+    keyPoints: window._lastResult.keyPoints,
+    quiz: window._lastResult.quiz,
+    createdAt: new Date().toISOString(),
+    sourceType: activeSource
+  });
+  await saveNotes();
+  renderNotes();
+  document.getElementById('noteTitleInput').value='';
+  toast('Saved to notes');
+});
+
+function renderNotes(){
+  const el = document.getElementById('notesList');
+  if(notes.length===0){ el.innerHTML = '<div class="empty">No saved notes yet.</div>'; return; }
+  el.innerHTML = notes.map(n=>`
+    <div class="note-item" onclick="viewNote('${n.id}')">
+      <div class="n-title">${escapeHtml(n.title)}</div>
+      <div class="n-meta">${new Date(n.createdAt).toLocaleDateString()} · ${n.sourceType} · <span onclick="event.stopPropagation();deleteNote('${n.id}')" style="color:var(--coral);cursor:pointer;">delete</span></div>
+    </div>`).join('');
+}
+window.viewNote = function(id){
+  const n = notes.find(n=>n.id===id); if(!n) return;
+  window._lastResult = {summary:n.summary, keyPoints:n.keyPoints, quiz:n.quiz};
+  document.getElementById('resSummary').textContent = n.summary;
+  document.getElementById('resKeyPoints').innerHTML = (n.keyPoints||[]).map(p=>`<li>${escapeHtml(p)}</li>`).join('');
+  document.getElementById('resQuiz').innerHTML = (n.quiz||[]).map((q,i)=>`
+    <div class="quiz-item" onclick="this.classList.toggle('open')">
+      <div class="quiz-q">${i+1}. ${escapeHtml(q.q)}</div>
+      <div class="quiz-a">${escapeHtml(q.a)}</div>
+    </div>`).join('');
+  document.getElementById('resultBlock').style.display='block';
+  document.getElementById('resultBlock').scrollIntoView({behavior:'smooth'});
+};
+window.deleteNote = async function(id){
+  notes = notes.filter(n=>n.id!==id); await saveNotes(); renderNotes();
+};
+
+/* ---------- research lookup (Google Custom Search) ---------- */
+document.getElementById('lookupBtn').addEventListener('click', async ()=>{
+  const q = document.getElementById('lookupQuery').value.trim();
+  if(!q) return;
+  if(!settings.googleKey || !settings.googleCx){ toast('Add Google API key + Search Engine ID in Settings'); return; }
+  const el = document.getElementById('lookupResults');
+  el.innerHTML = '<div class="loading"><div class="spinner"></div>Searching...</div>';
+  try{
+    const res = await fetch(`https://www.googleapis.com/customsearch/v1?key=${settings.googleKey}&cx=${settings.googleCx}&q=${encodeURIComponent(q)}`);
+    const data = await res.json();
+    if(!data.items || data.items.length===0){ el.innerHTML = '<div class="empty">No results.</div>'; return; }
+    el.innerHTML = data.items.slice(0,6).map(it=>`
+      <div class="search-result">
+        <a href="${it.link}" target="_blank" rel="noopener">${escapeHtml(it.title)}</a>
+        <p>${escapeHtml(it.snippet||'')}</p>
+      </div>`).join('');
+  }catch(err){
+    el.innerHTML = '<div class="empty">Search failed: '+err.message+'</div>';
+  }
+});
+
+/* ---------- settings ---------- */
+function loadSettingsForm(){
+  document.getElementById('cfgGoogleKey').value = settings.googleKey||'';
+  document.getElementById('cfgGoogleCx').value = settings.googleCx||'';
+  document.getElementById('cfgSbUrl').value = settings.sbUrl||'';
+  document.getElementById('cfgSbKey').value = settings.sbKey||'';
+}
+document.getElementById('saveSettingsBtn').addEventListener('click', async ()=>{
+  settings = {
+    googleKey: document.getElementById('cfgGoogleKey').value.trim(),
+    googleCx: document.getElementById('cfgGoogleCx').value.trim(),
+    sbUrl: document.getElementById('cfgSbUrl').value.trim(),
+    sbKey: document.getElementById('cfgSbKey').value.trim()
+  };
+  await saveSettingsToStorage();
+  toast('Settings saved');
+});
+
+let sbClient = null;
+document.getElementById('sbTestBtn').addEventListener('click', async ()=>{
+  const url = document.getElementById('cfgSbUrl').value.trim();
+  const key = document.getElementById('cfgSbKey').value.trim();
+  const dot = document.getElementById('sbDot'); const status = document.getElementById('sbStatus');
+  if(!url || !key){ toast('Enter Supabase URL and key first'); return; }
+  try{
+    sbClient = supabase.createClient(url, key);
+    const {error} = await sbClient.from('study_data').select('id').limit(1);
+    if(error) throw error;
+    dot.classList.add('ok');
+    status.innerHTML = '<span class="status-dot ok"></span>connected';
+    toast('Supabase connected');
+  }catch(err){
+    dot.classList.remove('ok');
+    status.innerHTML = '<span class="status-dot"></span>'+err.message;
+  }
+});
+
+/* ---------- init ---------- */
+(async function init(){
+  await loadAll();
+  renderSubjectSelect();
+  renderTasks();
+  renderNotes();
+  loadSettingsForm();
+  renderTimer();
+})();
+</script>
+</body>
+</html>
