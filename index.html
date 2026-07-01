@@ -334,16 +334,64 @@ let tasks = [];       // {id,title,subjectId,due,priority,minutes,done}
 let notes = [];        // {id,title,summary,keyPoints,quiz,createdAt,sourceType}
 let settings = {googleKey:"",googleCx:"",sbUrl:"",sbKey:""};
 const PALETTE = ["#3A5A9C","#E1653D","#6F8F6A","#9C6B3A","#7A5A9C","#3A8C9C"];
+const DEFAULT_SB_URL = "https://nbxhmydvbwtnnabrclvv.supabase.co";
+const DEFAULT_SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1xb214ZHZ5ZHJubnZ2a2thYnR6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE0MjI1MzksImV4cCI6MjA5Njk5ODUzOX0.TMh3pjoVeQ0U14mhwbE_-9YHnS3t2_kSd6ThJ3t1A2M";
+let sbClient = null;
 
 /* ---------- storage helpers ---------- */
 async function loadAll(){
   try{ const r = await window.storage.get('planner:data'); if(r) { const d=JSON.parse(r.value); subjects=d.subjects||[]; tasks=d.tasks||[]; } }catch(e){}
   try{ const r = await window.storage.get('notes:data'); if(r) notes = JSON.parse(r.value).items||[]; }catch(e){}
   try{ const r = await window.storage.get('settings:data'); if(r) settings = JSON.parse(r.value); }catch(e){}
+  if(!settings.sbUrl && !settings.sbKey){
+    settings.sbUrl = DEFAULT_SB_URL; settings.sbKey = DEFAULT_SB_KEY;
+    await saveSettingsToStorage();
+  }
   if(subjects.length===0){ subjects=[{id:'general',name:'General',color:PALETTE[0]}]; }
 }
-async function savePlanner(){ try{ await window.storage.set('planner:data', JSON.stringify({subjects,tasks})); }catch(e){ toast('Save failed'); } }
-async function saveNotes(){ try{ await window.storage.set('notes:data', JSON.stringify({items:notes})); }catch(e){ toast('Save failed'); } }
+function initSupabase(){
+  if(settings.sbUrl && settings.sbKey){
+    try{ sbClient = supabase.createClient(settings.sbUrl, settings.sbKey); }catch(e){ console.warn('Supabase init failed', e); }
+  } else { sbClient = null; }
+}
+async function pullFromSupabase(){
+  if(!sbClient) return;
+  try{
+    const {data, error} = await sbClient.from('study_data').select('id,payload').in('id',['planner','notes']);
+    if(error) throw error;
+    if(data){
+      const plannerRow = data.find(d=>d.id==='planner');
+      const notesRow = data.find(d=>d.id==='notes');
+      // Only bootstrap from the cloud if this device has nothing local yet
+      if(plannerRow && tasks.length===0 && subjects.length<=1){
+        subjects = plannerRow.payload.subjects || subjects;
+        tasks = plannerRow.payload.tasks || [];
+      }
+      if(notesRow && notes.length===0){
+        notes = notesRow.payload.items || [];
+      }
+    }
+    document.getElementById('storageNote').textContent = 'Synced with Supabase';
+  }catch(e){
+    console.warn('Supabase pull failed', e);
+    document.getElementById('storageNote').textContent = 'Saved locally (Supabase sync unavailable)';
+  }
+}
+async function pushToSupabase(id,payload){
+  if(!sbClient) return;
+  try{
+    const {error} = await sbClient.from('study_data').upsert({id, payload, updated_at:new Date().toISOString()});
+    if(error) throw error;
+  }catch(e){ console.warn('Supabase push failed', e); }
+}
+async function savePlanner(){
+  try{ await window.storage.set('planner:data', JSON.stringify({subjects,tasks})); }catch(e){ toast('Save failed'); }
+  pushToSupabase('planner', {subjects, tasks});
+}
+async function saveNotes(){
+  try{ await window.storage.set('notes:data', JSON.stringify({items:notes})); }catch(e){ toast('Save failed'); }
+  pushToSupabase('notes', {items:notes});
+}
 async function saveSettingsToStorage(){ try{ await window.storage.set('settings:data', JSON.stringify(settings)); }catch(e){ toast('Save failed'); } }
 
 function toast(msg){
@@ -667,10 +715,10 @@ document.getElementById('saveSettingsBtn').addEventListener('click', async ()=>{
     sbKey: document.getElementById('cfgSbKey').value.trim()
   };
   await saveSettingsToStorage();
+  initSupabase();
   toast('Settings saved');
 });
 
-let sbClient = null;
 document.getElementById('sbTestBtn').addEventListener('click', async ()=>{
   const url = document.getElementById('cfgSbUrl').value.trim();
   const key = document.getElementById('cfgSbKey').value.trim();
@@ -692,6 +740,8 @@ document.getElementById('sbTestBtn').addEventListener('click', async ()=>{
 /* ---------- init ---------- */
 (async function init(){
   await loadAll();
+  initSupabase();
+  await pullFromSupabase();
   renderSubjectSelect();
   renderTasks();
   renderNotes();
