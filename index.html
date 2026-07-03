@@ -217,9 +217,14 @@ button:disabled{opacity:.5;cursor:not-allowed;}
           <div class="timer-controls">
             <button class="btn-accent btn-sm" id="timerStart">Start</button>
             <button class="btn-ghost btn-sm" id="timerReset">Reset</button>
-            <button class="btn-ghost btn-sm" id="timerMode">25 / 5</button>
           </div>
         </div>
+        <div class="form-row" style="margin-top:14px;">
+          <div class="field"><label>Focus minutes</label><input type="number" id="focusMinutes" min="1" max="180" value="25"></div>
+          <div class="field"><label>Break minutes</label><input type="number" id="breakMinutes" min="1" max="60" value="5"></div>
+          <div style="display:flex;align-items:flex-end;"><button class="btn-ghost btn-sm" id="applyTimerLen">Apply</button></div>
+        </div>
+        <div class="setting-note" id="timerModeNote">Currently: focus session · click Apply after changing minutes</div>
       </div>
 
       <div class="card" id="taskListCard">
@@ -497,9 +502,13 @@ document.getElementById('addTaskBtn').addEventListener('click', async ()=>{
 });
 
 /* ---------- pomodoro ---------- */
-let timerSeconds = 25*60, timerRunning=false, timerInterval=null, isWork=true;
+let focusLen = 25, breakLen = 5;
+let timerSeconds = focusLen*60, timerRunning=false, timerInterval=null, isWork=true;
 function formatTime(s){ const m=Math.floor(s/60); const ss=s%60; return String(m).padStart(2,'0')+':'+String(ss).padStart(2,'0'); }
-function renderTimer(){ document.getElementById('timerDisplay').textContent = formatTime(timerSeconds); }
+function renderTimer(){
+  document.getElementById('timerDisplay').textContent = formatTime(timerSeconds);
+  document.getElementById('timerModeNote').textContent = `Currently: ${isWork?'focus':'break'} session · ${focusLen}m focus / ${breakLen}m break`;
+}
 document.getElementById('timerStart').addEventListener('click',()=>{
   if(timerRunning){ clearInterval(timerInterval); timerRunning=false; document.getElementById('timerStart').textContent='Start'; return; }
   timerRunning=true; document.getElementById('timerStart').textContent='Pause';
@@ -507,7 +516,7 @@ document.getElementById('timerStart').addEventListener('click',()=>{
     timerSeconds--;
     if(timerSeconds<=0){
       clearInterval(timerInterval); timerRunning=false;
-      isWork = !isWork; timerSeconds = isWork ? 25*60 : 5*60;
+      isWork = !isWork; timerSeconds = (isWork ? focusLen : breakLen)*60;
       document.getElementById('timerStart').textContent='Start';
       toast(isWork ? 'Break over — back to it' : 'Nice work — take a break');
     }
@@ -515,11 +524,19 @@ document.getElementById('timerStart').addEventListener('click',()=>{
   },1000);
 });
 document.getElementById('timerReset').addEventListener('click',()=>{
-  clearInterval(timerInterval); timerRunning=false; isWork=true; timerSeconds=25*60;
+  clearInterval(timerInterval); timerRunning=false; isWork=true; timerSeconds=focusLen*60;
   document.getElementById('timerStart').textContent='Start'; renderTimer();
 });
-document.getElementById('timerMode').addEventListener('click',()=>{
-  toast('Fixed at 25 / 5 for now');
+document.getElementById('applyTimerLen').addEventListener('click',()=>{
+  const f = parseInt(document.getElementById('focusMinutes').value);
+  const b = parseInt(document.getElementById('breakMinutes').value);
+  if(!f || f<1 || !b || b<1){ toast('Enter valid minute values'); return; }
+  focusLen = f; breakLen = b;
+  clearInterval(timerInterval); timerRunning=false;
+  isWork = true; timerSeconds = focusLen*60;
+  document.getElementById('timerStart').textContent='Start';
+  renderTimer();
+  toast('Timer updated');
 });
 
 /* ---------- summarizer: source toggle ---------- */
